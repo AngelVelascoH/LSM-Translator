@@ -16,7 +16,7 @@ cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 mp_hands = mp.solutions.hands
 mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
-hands = mp_hands.Hands(static_image_mode=False, min_detection_confidence=0.6)
+hands = mp_hands.Hands(static_image_mode=False, min_detection_confidence=0.6, min_tracking_confidence=0.6)
 engine = pyttsx3.init()
 labels_dict = {
     0: "A",
@@ -61,9 +61,9 @@ realtime_sequences = []
 # Inicializar la palabra actual y la última detectada
 current_word = ""
 last_detected_word = ""
-max_sequence_length = 60
+max_sequence_length = 30
 
-model_filename = "sign_language_rf_model3.joblib"
+model_filename = "sign_language_rf_model4.joblib"
 clf = joblib.load(model_filename)
 
 # Crear una imagen en negro
@@ -214,42 +214,50 @@ def handle_sign_language(results):
     x_center = letter_canvas.winfo_width() / 2
     y_center = letter_canvas.winfo_height() / 2
 
-    if results.multi_hand_landmarks:
-        hand_keypoints = results.multi_hand_landmarks[0].landmark
-        keypoints_array = np.array(
-            [[point.x, point.y, point.z] for point in hand_keypoints]
-        ).flatten()
+    if results.multi_handedness:
+        print(f"realtime_sequences: {len(realtime_sequences)}")
+      
 
-        # Añadir keypoints a la lista de la secuencia
-        realtime_sequences.append(keypoints_array)
+        if results.multi_hand_landmarks:
+            hand_keypoints = results.multi_hand_landmarks[0].landmark
+            keypoints_array = np.array(
+                [[point.x, point.y, point.z] for point in hand_keypoints]
+            ).flatten()
 
-        # Cuando alcanzamos la longitud máxima de la secuencia, hacemos una predicción
-        if len(realtime_sequences) == max_sequence_length:
-            # Convertir la secuencia a un array de numpy
-            input_sequence = np.array(realtime_sequences)
+            # Añadir keypoints a la lista de la secuencia
+            realtime_sequences.append(keypoints_array)
 
-            # Hacer la predicción
-            predicted_label = clf.predict(input_sequence.reshape(1, -1))[0]
+            # Cuando alcanzamos la longitud máxima de la secuencia, hacemos una predicción
+            if len(realtime_sequences) == max_sequence_length:
+                # Convertir la secuencia a un array de numpy
+                input_sequence = np.array(realtime_sequences)
 
-            # Actualizar la palabra actual
-            current_word = predicted_label
+                # Hacer la predicción
+                predicted_label = clf.predict(input_sequence.reshape(1, -1))[0]
 
-            # Mostrar la predicción en la parte inferior de la pantalla
-           
+                # Actualizar la palabra actual
+                current_word = predicted_label
 
-            # Limpiar la lista de la secuencia para la siguiente iteración
-            realtime_sequences = []
-        if current_word != "" and current_word != last_detected_word:
-            last_detected_word = current_word
-            detected_string += current_word + " "
-            letter_canvas.delete("all")
+                # Mostrar la predicción en la parte inferior de la pantalla
+            
 
-            text_area.delete("1.0", tk.END)
-            text_area.insert(tk.END, detected_string)
-            text_area.tag_add("big", "1.0", tk.END)
-            letter_canvas.create_text(
-                x_center, y_center, text=current_word, font=("Arial", 30), fill="white"
-            )
+                # Limpiar la lista de la secuencia para la siguiente iteración
+                realtime_sequences = []
+            if current_word != "" and current_word != last_detected_word:
+                last_detected_word = current_word
+                detected_string += current_word + " "
+                letter_canvas.delete("all")
+
+                text_area.delete("1.0", tk.END)
+                text_area.insert(tk.END, detected_string)
+                text_area.tag_add("big", "1.0", tk.END)
+                letter_canvas.create_text(
+                    x_center, y_center, text=current_word, font=("Arial", 30), fill="white"
+                )
+
+    else:
+        realtime_sequences = []
+        print("No hand landmarks detected")
 
 
 root = tk.Tk()
