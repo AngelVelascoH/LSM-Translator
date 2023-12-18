@@ -16,7 +16,7 @@ cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 mp_hands = mp.solutions.hands
 mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
-hands = mp_hands.Hands(static_image_mode=False, min_detection_confidence=0.6, min_tracking_confidence=0.6)
+hands = mp_hands.Hands(static_image_mode=False, min_detection_confidence=0.5, min_tracking_confidence=0.5)
 engine = pyttsx3.init()
 labels_dict = {
     0: "A",
@@ -116,6 +116,25 @@ def clear_text():
     letter_canvas.delete("all")
     text_area.delete("1.0", tk.END)
 
+def delete_letter():
+    global detected_string
+    if len(detected_string) > 0:
+        detected_string = detected_string[:-1]
+        update_text_area()
+
+def delete_word():
+    global detected_string
+    words = detected_string.split()
+    if len(words) > 0:
+        detected_string = " ".join(words[:-1])
+        detected_string = detected_string + " "
+        update_text_area()
+
+def update_text_area():
+    text_area.delete("1.0", tk.END)
+    text_area.insert(tk.END, detected_string)
+    text_area.tag_add("big", "1.0", tk.END)
+
 
 def capture_video_combined():
     global current_letter, current_time, detected_string, current_word, last_detected_word, realtime_sequences
@@ -187,7 +206,7 @@ def handle_spelling(results):
                     text_area.insert(tk.END, detected_string)
                     text_area.tag_add("big", "1.0", "end")
 
-                predicted_char = predicted_letter + "\n" + str(confidence) + "%"
+                predicted_char = predicted_letter + "\n" + str(confidence * 100) + "%"
         else:
             current_time += 1
             if current_time > 20:
@@ -282,36 +301,41 @@ main_frame.grid_columnconfigure(1, weight=1)
 letter_canvas = Canvas(right_frame, bg="black")
 letter_canvas.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
 
-# Crear un frame para los botones (25%)
-button_frame = Frame(right_frame)
-button_frame.pack(fill=tk.BOTH, expand=True)
+button_text_frame = Frame(right_frame)
+button_text_frame.pack(fill=tk.BOTH, expand=True)
 
 # Botones
-start_button = ttk.Button(button_frame, text="Start Camera", command=start_camera, style="Accent.TButton")
+start_button = ttk.Button(button_text_frame, text="Start Camera", command=start_camera, style="Accent.TButton")
 start_button.grid(row=0, column=0, padx=20, pady=10, sticky="nsew")
 
-stop_button = ttk.Button(button_frame, text="Stop Camera", command=stop_camera)
+stop_button = ttk.Button(button_text_frame, text="Stop Camera", command=stop_camera)
 stop_button.grid(row=1, column=0, padx=20, pady=10, sticky="nsew")
 
-clear_button = ttk.Button(button_frame, text="Clear", command=clear_text, style="Accent.TButton")
+clear_button = ttk.Button(button_text_frame, text="Clear", command=clear_text, style="Accent.TButton")
 clear_button.grid(row=2, column=0, padx=20, pady=10, sticky="nsew")
 
-# Crear un frame para el text area (25%)
-text_frame = Frame(right_frame)
-text_frame.pack(fill=tk.BOTH, expand=True)
+play_button = ttk.Button(button_text_frame, text="Reproducir", command=read_text, style="Accent.TButton")
+play_button.grid(row=3, column=0, padx=20, pady=10, sticky="nsew")
 
-# Botón para reproducir texto
-play_button = ttk.Button(button_frame, text="Reproducir", command=read_text, style="Accent.TButton")
-play_button.grid(row=1, column=1, padx=20, pady=10, sticky="nsew")
+switch_button = ttk.Button(button_text_frame, text="Switch", command=switch, style="Accent.TButton")
+switch_button.grid(row=4, column=0, padx=20, pady=10, sticky="nsew")
 
-switch_button = ttk.Button(button_frame, text="Switch", command=switch, style="Accent.TButton")
-switch_button.grid(row=0, column=1, padx=20, pady=10, sticky="nsew")
+delete_letter_button = ttk.Button(button_text_frame, text="Borrar letra", command=delete_letter, style="Accent.TButton")
+delete_letter_button.grid(row=5, column=0, padx=20, pady=10, sticky="nsew")
+
+delete_word_button = ttk.Button(button_text_frame, text="Borrar palabra", command=delete_word, style="Accent.TButton")
+delete_word_button.grid(row=6, column=0, padx=20, pady=10, sticky="nsew")
 
 # Text area
-text_area = tk.Text(text_frame, height=10)
-text_area.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+text_area = tk.Text(button_text_frame, height=10)
+text_area.grid(row=0, column=1, rowspan=7, padx=20, pady=20, sticky="nsew")
 
 text_area.tag_configure("big", font=("Arial", 20, "bold"))
+
+# ...
+
+
+
 
 # Etiqueta para mostrar el video de la cámara (50%)
 video_label = Label(left_frame)
