@@ -12,11 +12,14 @@ import joblib
 
 model_dict = pickle.load(open("./model.p", "rb"))
 model = model_dict["model"]
+
+top_word_choices = []
+
 cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 mp_hands = mp.solutions.hands
 mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
-hands = mp_hands.Hands(static_image_mode=False, min_detection_confidence=0.5, min_tracking_confidence=0.5)
+hands = mp_hands.Hands(static_image_mode=False, min_detection_confidence=0.5, min_tracking_confidence=0.3)
 engine = pyttsx3.init()
 labels_dict = {
     0: "A",
@@ -63,12 +66,35 @@ current_word = ""
 last_detected_word = ""
 max_sequence_length = 30
 
-model_filename = "sign_language_rf_model4.joblib"
+model_filename = "sign_language_rf_model5.joblib"
 clf = joblib.load(model_filename)
 
 # Crear una imagen en negro
 blank_image = np.zeros((480, 640, 3), np.uint8)
 
+def select_word(word):
+    global detected_string,last_detected_word
+    if word != "" and word != last_detected_word:
+        last_detected_word = word
+        detected_string += word + " "
+        text_area.delete("1.0", tk.END)
+        text_area.insert(tk.END, detected_string)
+        text_area.tag_add("big", "1.0", tk.END)
+
+
+def update_top_word_choices_ui():
+    global top_word_choices, realtime_sequences
+
+    # Limpiar el frame de los botones anteriores
+    for widget in top_words_frame.winfo_children():
+        widget.destroy()
+
+    # Crear un botón para cada palabra en top_word_choices
+    for word, probability in top_word_choices:
+        word_button = ttk.Button(top_words_frame, text=f"{word} ({probability * 100})", 
+                                 command=lambda w=word: select_word(w))
+        word_button.pack(pady=5)  # Añade un pequeño espacio vertical entre los botones
+    realtime_sequences = []
 
 def read_text():
     global detected_string
@@ -167,69 +193,87 @@ def handle_spelling(results):
     y_center = letter_canvas.winfo_height() / 2
 
     if results.multi_hand_landmarks:
-        data_aux = []
-        x_ = []
-        y_ = []
+            
 
-        for hand_landmarks in results.multi_hand_landmarks:
-            for i in range(len(hand_landmarks.landmark)):
-                x = hand_landmarks.landmark[i].x
-                y = hand_landmarks.landmark[i].y
-                x_.append(x)
-                y_.append(y)
+            for idx, hand_handedness in enumerate(results.multi_handedness):
+                label = hand_handedness.classification[0].label
+                if label == 'Right' and len(results.multi_handedness) != 2:
+                    # Ajustar landmarks para simular efecto espejo
+                    for hand_landmarks in results.multi_hand_landmarks:
+                        for landmark in hand_landmarks.landmark:
+                            landmark.x = 1 - landmark.x
 
-            for i in range(len(hand_landmarks.landmark)):
-                x = hand_landmarks.landmark[i].x
-                y = hand_landmarks.landmark[i].y
-                data_aux.append(x - min(x_))
-                data_aux.append(y - min(y_))
+    if results.multi_hand_landmarks:
+            
+            data_aux = []
+            x_ = []
+            y_ = []
 
-        if len(results.multi_handedness) != 2 and len(results.multi_hand_landmarks) == 1:
-            letter_canvas.delete("all")
-            prediction = model.predict([np.asarray(data_aux)])
+            for hand_landmarks in results.multi_hand_landmarks:
+                for i in range(len(hand_landmarks.landmark)):
+                    x = hand_landmarks.landmark[i].x
+                    y = hand_landmarks.landmark[i].y
+                    x_.append(x)
+                    y_.append(y)
 
-            confidence = model.predict_proba([np.asarray(data_aux)])
-            confidence = confidence.max()
+                for i in range(len(hand_landmarks.landmark)):
+                    x = hand_landmarks.landmark[i].x
+                    y = hand_landmarks.landmark[i].y
+                    data_aux.append(x - min(x_))
+                    data_aux.append(y - min(y_))
 
-            if confidence > 0.4:
-                predicted_letter = labels_dict[int(prediction[0])]
-                if predicted_letter == current_letter:
-                    current_time += 1
-                else:
-                    current_letter = predicted_letter
-                    current_time = 1
+           
+            if len(results.multi_handedness) != 2 and len(results.multi_hand_landmarks) == 1:
+                letter_canvas.delete("all")
+                prediction = model.predict([np.asarray(data_aux)])
 
-                if current_time > 10:  # 30 frames son aproximadamente 3 segundos
-                    detected_string += predicted_letter
+                confidence = model.predict_proba([np.asarray(data_aux)])
+                confidence = confidence.max()
+                print(confidence)
+                if confidence > 0.4:
+                    predicted_letter = labels_dict[int(prediction[0])]
+                    if predicted_letter == current_letter:
+                        current_time += 1
+                    else:
+                        current_letter = predicted_letter
+                        current_time = 1
+
+                    if current_time > 5:  # 30 frames son aproximadamente 3 segundos
+                        detected_string += predicted_letter
+                        current_time = 0
+                        text_area.delete("1.0", tk.END)
+                        text_area.insert(tk.END, detected_string)
+                        text_area.tag_add("big", "1.0", "end")
+                        
+                    
+                    # crear un espacio si no se detecta mano por 3 segundos
+                   
+
+
+                    predicted_char = predicted_letter + "\n" + str(confidence) + "%"
+            else:
+                current_time += 1 
+                if(current_time > 20):
+                    print("Espacio.---")
                     current_time = 0
+
+                    current_letter = None
+                    space = "Espacio..."
+                    letter_canvas.delete("all")
+                    letter_canvas.create_text(
+                    x_center, y_center, text=space, font=("Arial", 30), fill="white"
+                    )
+                    detected_string += " "
                     text_area.delete("1.0", tk.END)
                     text_area.insert(tk.END, detected_string)
-                    text_area.tag_add("big", "1.0", "end")
+                    text_area.tag_add("big", "1.0", tk.END)
 
-                predicted_char = predicted_letter + "\n" + str(confidence * 100) + "%"
-        else:
-            current_time += 1
-            if current_time > 20:
-                current_time = 0
-
-                current_letter = None
-                space = "Espacio..."
-                letter_canvas.delete("all")
-                letter_canvas.create_text(
-                    x_center, y_center, text=space, font=("Arial", 30), fill="white"
-                )
-                detected_string += " "
-                text_area.delete("1.0", tk.END)
-                text_area.insert(tk.END, detected_string)
-                text_area.tag_add("big", "1.0", tk.END)
-
-        letter_canvas.create_text(
+            letter_canvas.create_text(
             x_center, y_center, text=predicted_char, font=("Arial", 30), fill="white"
-        )
-
+            )
 
 def handle_sign_language(results):
-    global current_word, realtime_sequences, detected_string,last_detected_word
+    global current_word, realtime_sequences, detected_string,last_detected_word, top_word_choices
     x_center = letter_canvas.winfo_width() / 2
     y_center = letter_canvas.winfo_height() / 2
 
@@ -250,8 +294,18 @@ def handle_sign_language(results):
             if len(realtime_sequences) == max_sequence_length:
                 # Convertir la secuencia a un array de numpy
                 input_sequence = np.array(realtime_sequences)
+                probabilities = clf.predict_proba(input_sequence.reshape(1, -1))[0]
+                top_indices = np.argsort(probabilities)[-3:][::-1]
+                top_word_choices = [(clf.classes_[i], probabilities[i]) for i in top_indices]
+                if probabilities[top_indices[0]] > 0.4:
+                    current_word = clf.classes_[top_indices[0]]
+                    select_word(current_word)
+                    realtime_sequences = []
+                else:
+                    update_top_word_choices_ui()
 
                 # Hacer la predicción
+                """
                 predicted_label = clf.predict(input_sequence.reshape(1, -1))[0]
 
                 # Actualizar la palabra actual
@@ -273,6 +327,7 @@ def handle_sign_language(results):
                 letter_canvas.create_text(
                     x_center, y_center, text=current_word, font=("Arial", 30), fill="white"
                 )
+               """ 
 
     else:
         realtime_sequences = []
@@ -325,6 +380,11 @@ delete_letter_button.grid(row=5, column=0, padx=20, pady=10, sticky="nsew")
 
 delete_word_button = ttk.Button(button_text_frame, text="Borrar palabra", command=delete_word, style="Accent.TButton")
 delete_word_button.grid(row=6, column=0, padx=20, pady=10, sticky="nsew")
+
+# En la sección de tu UI donde configuras los Frames y Buttons:
+top_words_frame = Frame(right_frame)
+top_words_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+
 
 # Text area
 text_area = tk.Text(button_text_frame, height=10)
