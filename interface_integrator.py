@@ -113,10 +113,11 @@ def read_text():
 
 
 def switch():
-    global spelling
+    global spelling,detected_string
     if spelling == False:
         spelling = True
     else:
+        detected_string = detected_string + " "
         spelling = False
     
 
