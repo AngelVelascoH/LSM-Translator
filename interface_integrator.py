@@ -10,6 +10,7 @@ import sv_ttk
 import pyttsx3
 import joblib
 
+
 model_dict = pickle.load(open("./model.p", "rb"))
 model = model_dict["model"]
 
@@ -36,7 +37,7 @@ labels_dict = {
     11: "L",
     12: "M",
     13: "N",
-    14: "ENIE",
+    14: "Ñ",
     15: "O",
     16: "P",
     17: "Q",
@@ -70,16 +71,25 @@ model_filename = "sign_language_rf_model5.joblib"
 clf = joblib.load(model_filename)
 
 # Crear una imagen en negro
-blank_image = np.zeros((480, 640, 3), np.uint8)
+blank_image = np.zeros((430, 590, 3), np.uint8)
+
 
 def select_word(word):
+    x_center = letter_canvas.winfo_width() / 2
+    y_center = letter_canvas.winfo_height() / 2
     global detected_string,last_detected_word
     if word != "" and word != last_detected_word:
+        if word == "banio":
+            word = "baño"
+        letter_canvas.delete("all")
         last_detected_word = word
         detected_string += word + " "
         text_area.delete("1.0", tk.END)
         text_area.insert(tk.END, detected_string)
         text_area.tag_add("big", "1.0", tk.END)
+        letter_canvas.create_text(
+                    x_center, y_center, text=word, font=("Arial", 30), fill="white"
+                )
 
 
 def update_top_word_choices_ui():
@@ -91,7 +101,7 @@ def update_top_word_choices_ui():
 
     # Crear un botón para cada palabra en top_word_choices
     for word, probability in top_word_choices:
-        word_button = ttk.Button(top_words_frame, text=f"{word} ({probability * 100})", 
+        word_button = ttk.Button(top_words_frame, text=f"{word} ({probability * 100:.2f}%)", 
                                  command=lambda w=word: select_word(w))
         word_button.pack(pady=5)  # Añade un pequeño espacio vertical entre los botones
     realtime_sequences = []
@@ -335,6 +345,8 @@ def handle_sign_language(results):
 
 
 root = tk.Tk()
+root.geometry("1280x720")
+
 root.title("LSM ESCOM TT2022")
 
 # Crear un frame para dividir la ventana en dos partes
@@ -342,10 +354,10 @@ main_frame = Frame(root)
 main_frame.pack(fill=tk.BOTH, expand=True)
 
 # Dividir el frame en dos columnas
-left_frame = Frame(main_frame, width=320, height=480)
+left_frame = Frame(main_frame, width=640, height=720)
 left_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
 
-right_frame = Frame(main_frame, width=320, height=480)
+right_frame = Frame(main_frame, width=640, height=720)
 right_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
 
 main_frame.grid_rowconfigure(0, weight=1)
@@ -360,19 +372,19 @@ button_text_frame = Frame(right_frame)
 button_text_frame.pack(fill=tk.BOTH, expand=True)
 
 # Botones
-start_button = ttk.Button(button_text_frame, text="Start Camera", command=start_camera, style="Accent.TButton")
+start_button = ttk.Button(button_text_frame, text="Iniciar Cámara", command=start_camera, style="Accent.TButton")
 start_button.grid(row=0, column=0, padx=20, pady=10, sticky="nsew")
 
-stop_button = ttk.Button(button_text_frame, text="Stop Camera", command=stop_camera)
+stop_button = ttk.Button(button_text_frame, text="Detener Cámara", command=stop_camera)
 stop_button.grid(row=1, column=0, padx=20, pady=10, sticky="nsew")
 
-clear_button = ttk.Button(button_text_frame, text="Clear", command=clear_text, style="Accent.TButton")
+clear_button = ttk.Button(button_text_frame, text="Limpiar", command=clear_text, style="Accent.TButton")
 clear_button.grid(row=2, column=0, padx=20, pady=10, sticky="nsew")
 
 play_button = ttk.Button(button_text_frame, text="Reproducir", command=read_text, style="Accent.TButton")
 play_button.grid(row=3, column=0, padx=20, pady=10, sticky="nsew")
 
-switch_button = ttk.Button(button_text_frame, text="Switch", command=switch, style="Accent.TButton")
+switch_button = ttk.Button(button_text_frame, text="Cambiar modo", command=switch, style="Accent.TButton")
 switch_button.grid(row=4, column=0, padx=20, pady=10, sticky="nsew")
 
 delete_letter_button = ttk.Button(button_text_frame, text="Borrar letra", command=delete_letter, style="Accent.TButton")
@@ -381,16 +393,16 @@ delete_letter_button.grid(row=5, column=0, padx=20, pady=10, sticky="nsew")
 delete_word_button = ttk.Button(button_text_frame, text="Borrar palabra", command=delete_word, style="Accent.TButton")
 delete_word_button.grid(row=6, column=0, padx=20, pady=10, sticky="nsew")
 
-# En la sección de tu UI donde configuras los Frames y Buttons:
-top_words_frame = Frame(right_frame)
+
+top_words_frame = Frame(left_frame)
 top_words_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
 
 
 # Text area
-text_area = tk.Text(button_text_frame, height=10)
-text_area.grid(row=0, column=1, rowspan=7, padx=20, pady=20, sticky="nsew")
+text_area = tk.Text(button_text_frame, width=30, height=10, font=("Arial", 16))
+text_area.grid(row=0, column=1, rowspan=5, padx=10, pady=10, sticky="nsew")
 
-text_area.tag_configure("big", font=("Arial", 20, "bold"))
+text_area.tag_configure("big", font=("Arial", 18, "bold"))
 
 # ...
 
